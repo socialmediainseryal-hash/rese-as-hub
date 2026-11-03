@@ -39,7 +39,7 @@ Se comprobó contra Supabase (REST + SQL Editor) que **030, 031 y 032 están apl
 - **Business Profile**: cuota ACTIVA, fuente única. 7 fichas conectadas por OAuth (`accounts/111197444117937021993`), consent screen en **Producción** (tokens ya no caducan a 7 días, §4.58). Places apagado. Diagnóstico: `node scripts/check-bp-quota.mjs`.
 - **Escrituradora**: feature lista en código + BD. Pendiente solo invitar a la persona real desde `/comerciales` (casilla "multi-oficina").
 - **Tests**: `npm test` → **435 verdes**. `npm run typecheck` ✅. `npm run lint` solo warnings preexistentes.
-- **Deploy**: todo pusheado a `main`. Verificar en Vercel que el último deploy está **Ready**.
+- **Deploy**: un push a `main` de `socialmediainseryal-hash/rese-as-hub` publica en producción (desde el 03-11-2026). Verificar que el último deploy está **Ready** y no BLOCKED: `gh api repos/socialmediainseryal-hash/rese-as-hub/commits/<sha>/status`.
 
 ---
 
@@ -54,7 +54,8 @@ Se comprobó contra Supabase (REST + SQL Editor) que **030, 031 y 032 están apl
 
 ## 3. Watch-outs / gotchas al retomar
 
-- ⚠️ **Email de commit para Vercel**: usar **`alejandro.castillo@inseryal.es`** (config del repo). NO gmail — Vercel bloquea el deploy.
+- ⚠️ **Autor de commit para Vercel (desde el 03-11-2026, al revés que antes)**: el proyecto está en el Vercel Hobby de Juan y solo despliega commits cuyo autor es `socialmediainseryal-hash` (`socialmedia.inseryal@gmail.com`). Un commit firmado por `alejandro.castillo@inseryal.es` u otro queda **BLOCKED**. Ver `CLAUDE.md` §0 «Despliegue y cuentas».
+- ⚠️ **Admin `a.castillo.esv@gmail.com` (Alejandro) sigue activo** hasta que Juan (`juan.ruiz@inseryal.es`, hoy `invited`) entre por primera vez. Después, darlo de baja. Las pruebas e2e inician sesión con ese gmail: hay que cambiarlas antes.
 - ⚠️ **"Responsable" en la UI == rol `office_director`** en código (solo cambió texto visible; rol/`director_id`/ruta `/directores` intactos). §4.55.
 - ⚠️ **RLS `profiles_self_update`**: al añadir CUALQUIER columna sensible a `profiles`, congélala en la policy (mig más reciente) + añádela a `FROZEN_COLUMNS` en [lib/__tests__/rls-self-update.test.ts](lib/__tests__/rls-self-update.test.ts). §4.36.
 - ⚠️ **Comisión con tope**: cualquier superficie que muestre € de comisión usa `lib/commission.ts` (`commissionEuro`/`payableCount`), no `rate × counted`. §4.49.

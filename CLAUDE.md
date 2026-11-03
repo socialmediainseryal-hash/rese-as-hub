@@ -6,12 +6,29 @@ Este archivo lo lee Claude Code automáticamente al abrir el repo. Vive en git �
 
 ---
 
+## 0. Despliegue y cuentas (03-11-2026)
+
+**Subir a `main` PUBLICA en producción.** Hasta el 03-11 el proyecto de Vercel estaba en la cuenta de Alejandro y desplegaba desde su repo público `acastillocanton/rese-as-hub`. Ahora:
+
+- **Vercel**: equipo «Marina d'Or Construcciones» (`marina-d-or-construcciones-projects`), plan **Hobby**, un solo usuario (`socialmediainseryal-2823`), sin miembros. Se entra con `juan.ruiz@inseryal.es` (código al buzón) o con «Continue with GitHub» como `socialmediainseryal-hash`. Sin 2FA, por decisión de Juan; «Reauthenticate» también manda el código a `juan.ruiz@inseryal.es`. El correo de Alejandro se borró de la cuenta: ya no puede entrar.
+- **Regla de Hobby: solo se despliegan commits cuyo autor es `socialmediainseryal-hash`** (`socialmedia.inseryal@gmail.com`). Otro autor, **BLOCKED**. La línea `Co-Authored-By` no bloquea (comprobado en vallas-marinador el 03-11). Hobby es para uso no comercial: si un día se paga Pro, es por esto.
+- Proyecto `prj_0ULR7wI0KMPeWfOEQ3lglYpuM7CX`, enlazado desde el 03-11 a `socialmediainseryal-hash/rese-as-hub`. Los dos `main` eran idénticos (`0a919e9`, el que estaba en producción). La app de Vercel en GitHub solo tiene acceso a este repo y a `vallas-marinador`.
+- Dominio `resenas.marinadorconstrucciones.com`, DNS en SiteGround.
+- Crons de `vercel.json` (UTC): `sync-google-reviews` `5 5`, `enrich-review-urls` `30 5`, `health-check` `45 5`.
+- Variables en Vercel: `GOOGLE_PLACES_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_SMTP_PASS`, `BREVO_SMTP_USER`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`.
+- **Google Cloud** `resenas-inseryal`: único propietario `socialmedia.inseryal@gmail.com`; no depende de Alejandro. Facturación «Mi cuenta de facturación de Maps»: previsión de 59,11 € en noviembre de 2026, +82 % frente a octubre, sin revisar.
+- **Brevo**: cuenta de la empresa (organización COMERVI SL, se entra con `socialmedia.inseryal@gmail.com`), usuario SMTP `7e1a24001@smtp-brevo.com`. Claves SMTP de esta app: `resenahub-app` y `resenahub-supabase` (§4.13). **Brevo desactiva las claves que llevan tiempo sin uso**: si dejan de salir correos, lo primero es mirar el estado de la clave.
+- Barrido de secretos de todo el historial de este repo y del de Alejandro (gitleaks y búsqueda manual, 03-11): limpio. Un único aviso, falso positivo (identificador de reseña en un test).
+- Comprobar un despliegue sin entrar en Vercel: `gh api repos/socialmediainseryal-hash/rese-as-hub/commits/<sha>/status`.
+
+---
+
 ## 1. Resumen
 
 **ReseñaHub** — app interna single-tenant para **Inseryal by Marina d'Or**. Sustituye el parte semanal de reseñas que se compilaba a mano en Excel.
 
 Cuatro roles:
-- **admin** — gestor global. Hoy 3 personas: Alejandro Castillo + Rafael Ibáñez + Juan Ruiz (`@inseryal.es`). ⚠️ No hay flujo de UI para invitar admins (`createInvitedProfile` solo admite sales/manager/director): se dan de alta a mano con service-role (generate_link `type=invite` + insert en `profiles` con `role='admin'`, sin `location_id`).
+- **admin** — gestor global. Hoy 3 personas: Alejandro Castillo + Rafael Ibáñez + Juan Ruiz (`@inseryal.es`). ⚠️ Alejandro ya no trabaja en la empresa: su admin (`a.castillo.esv@gmail.com`) sigue activo **solo hasta que Juan entre por primera vez** (hoy `invited`); después, baja. ⚠️ No hay flujo de UI para invitar admins (`createInvitedProfile` solo admite sales/manager/director): se dan de alta a mano con service-role (generate_link `type=invite` + insert en `profiles` con `role='admin'`, sin `location_id`).
 - **office_director** (director de oficina, migraciones 011 + 012 + 013) — rol **DUAL**: (a) **admin scoped a SU EQUIPO** (`profiles.director_id`); (b) **comercial productor** con su propio `/c/{slug}`, clientes, reseñas atribuidas (igual que un sales). Cada director gestiona un subset de comerciales dentro de una ficha y a la vez vende él mismo. Una location puede tener varios directores, cada uno con su equipo. Tiene los mismos campos productivos que un sales (`department`, `language` si internacional, `monthly_goal`). Aparece en el leaderboard y en el parte Excel marcado con "★" para distinguirlo. ⚠️ Desde 2026-06-10 (commit `b8ef681`) **NO accede a `/fichas` ni al flujo OAuth** — la gestión de fichas Google pasó a solo-admin (`assertAdmin` en actions + middleware). Sidebar: tres grupos — "Inicio" (Dashboard), "Mi panel" (productor: enlace, clientes, reseñas) y "Mi oficina" (gestor: verificación, comerciales, ranking del equipo). NO accede a `/gestores`, `/ajustes`, `/directores` ni `/fichas`. Solo el admin general invita/edita/elimina directores desde `/directores` (y el reviews_manager también, por paridad con sales).
 - **sales** (comercial) — genera enlaces personalizados por cliente, ve sus reseñas, su ranking. Puede tener un `director_id` asignado (su responsable directo). Si es null, queda en el pool del admin/reviews_manager. Desde mig 016 también accede a `/resenas/verificacion` con permiso acotado a "Reclamar" reseñas huérfanas (unmatched) de SU ficha (atribuírselas a sí mismo + un cliente propio o nuevo). No puede confirmar/rechazar/reasignar/eliminar.
 - **reviews_manager** (Bel) — comparte vista con admin en Dashboard y comerciales, **con plenos permisos de administración sobre el rol sales** (invitar / editar / reenviar acceso / eliminar — incluye asignar/reasignar `director_id`). Adicional: `/manager/resenas`, `/manager/export` y `/resenas/verificacion` (paridad con admin tras mig 016: confirmar/rechazar/reasignar/markRemoved/restore). NO accede a `/gestores`, `/directores`, `/fichas`, `/ajustes`.
@@ -1338,7 +1355,7 @@ Segundo botón de exportación (junto al "Descargar Excel" negro), **ámbar/dora
 
 `.env.local` está en `.gitignore` — no viaja. En cada Mac:
 
-1. `git clone https://github.com/acastillocanton/rese-as-hub.git && cd rese-as-hub && npm install`
+1. `git clone https://github.com/socialmediainseryal-hash/rese-as-hub.git && cd rese-as-hub && npm install` (el de `acastillocanton` ya no es el de producción, §0)
 2. Crear `.env.local` desde `.env.example` con:
    - `NEXT_PUBLIC_SUPABASE_URL=https://zejwmznusszqlwhevaqv.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (formato `sb_publishable_*`) — Supabase Dashboard → Settings → API.
@@ -1349,7 +1366,7 @@ Segundo botón de exportación (junto al "Descargar Excel" negro), **ámbar/dora
    - `GOOGLE_PLACES_API_KEY` (formato `AIza…`) para que el cron de Places API funcione en local. Crear en Google Cloud Console → proyecto `resenas-inseryal` → Credentials. Ver §4.18.
    - Opcionales (integración Business Profile cuando llegue cuota): `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_OAUTH_REDIRECT_URI`.
 3. `npm run dev` → http://localhost:3000.
-4. Login: `/login` con `a.castillo.esv@gmail.com`, magic-link al email. (Email de login del admin Alejandro Castillo cambiado 2026-07-20 desde `alejandro.castillo@inseryal.es`. ⚠️ NO confundir con el email de **autor de commits**, que sigue siendo `alejandro.castillo@inseryal.es` — gmail bloquea el deploy de Vercel.)
+4. Login: `/login` con `a.castillo.esv@gmail.com`, magic-link al email. (Email de login del admin Alejandro Castillo cambiado 2026-07-20 desde `alejandro.castillo@inseryal.es`. Desde el 03-11-2026 el autor de commits que despliega es `socialmediainseryal-hash`, no Alejandro: ver §0. Su admin sigue activo hasta el primer login de Juan.)
 
 ---
 
@@ -1390,7 +1407,7 @@ Segundo botón de exportación (junto al "Descargar Excel" negro), **ámbar/dora
 - **Email Templates**: Magic Link con `type=email`, Invite con `type=invite` (ver §4.1).
 - **Storage**: bucket público `avatars` con 3 policies (insert/update/delete propio en `{user_id}/`). Avatar upload vía server action con service-role en [`(profile)/perfil/actions.ts`](app/(profile)/perfil/actions.ts) (bypasea RLS por simplicidad).
 - **Usuarios (estado 2026-05-25 — alta masiva de comerciales y directores reales)**:
-  - 3 admins: Alejandro Castillo (`a.castillo.esv@gmail.com` desde 2026-07-20) + Rafael Ibáñez (`rafael.ibanez@inseryal.es`) activos; Juan Ruiz (`juan.ruiz@inseryal.es`, alta 2026-09-02, `invited` hasta su primer login).
+  - 3 admins: Alejandro Castillo (`a.castillo.esv@gmail.com` desde 2026-07-20) + Rafael Ibáñez (`rafael.ibanez@inseryal.es`) activos; Juan Ruiz (`juan.ruiz@inseryal.es`, alta 2026-09-02, `invited` hasta su primer login). **Pendiente (03-11-2026): baja del admin de Alejandro cuando Juan entre por primera vez** (medido ese día: Juan sigue `invited`, sin ningún acceso).
   - 2 gestores activos: Bel (`bel.bernete@inseryal.es`) + José González Pérez (`jose.gonzalez@inseryal.es`).
   - **11 directores de oficina** (1 activo: Roberto García Cuellar; 10 invitados — María Jesús Lozano, Carmen Lopez, Fernando Taño, Korina Unguryanu, Almudena Martinez, Jose Rubio Mateos, Adriana Mihalascu, Georgina Lawless, Monika Kubiak, Pavel Kurlaev).
   - **40 comerciales invitados** distribuidos por departamento: nacional 19, internacional 14, castellón 5, valencia 6. Status `invited` hasta que cada uno confirme su magic-link → flip automático a `active`.
